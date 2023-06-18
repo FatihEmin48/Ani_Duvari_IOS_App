@@ -6,6 +6,8 @@
 //
 
 import UIKit
+import Firebase
+import FirebaseStorage
 
 class UploadViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     
@@ -39,15 +41,54 @@ class UploadViewController: UIViewController, UIImagePickerControllerDelegate, U
     }
 
     @IBAction func uploadButtonClicked(_ sender: Any) {
+        
+        let storage = Storage.storage()
+        let storageReferance = storage.reference()
+        
+        let mediaFolder = storageReferance.child("media")
+        
+        if let data = imageView.image?.jpegData(compressionQuality: 0.5){
+            
+            let uuid = UUID().uuidString
+            
+            let imageReferance = mediaFolder.child("\(uuid).jpg")
+            
+            imageReferance.putData(data, metadata: nil) { storagemetadata, error in
+                if error != nil {
+                    self.hataMesajiGoster(title: "ERROR!", message: error?.localizedDescription ?? "Error, Try Again")
+                } else {
+                    imageReferance.downloadURL { url, error in
+                        if error == nil {
+                            let imageUrl = url?.absoluteString
+                            
+                            if let imageUrl = imageUrl{
+                                
+                                let firestoreDatabase = Firestore.firestore()
+                                
+                                let firestorePost = ["gorselUrl" : imageUrl, "yorum" : self.commentTextField.text!, "email" : Auth.auth().currentUser!.email, "tarih" : FieldValue.serverTimestamp()] as [String : Any]
+                                
+                                firestoreDatabase.collection("Post").addDocument(data: firestorePost) { error in
+                                    if error != nil {
+                                        self.hataMesajiGoster(title: "Error", message: error?.localizedDescription ?? "Error, Try Again")
+                                    } else {
+                                        self.commentTextField.text = ""
+                                        self.imageView.image = UIImage(named: "photoIcon")
+                                        self.tabBarController?.selectedIndex = 0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
-    /*
-    // MARK: - Navigation
 
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
+    func hataMesajiGoster(title: String, message : String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: UIAlertController.Style.alert)
+        let okButton = UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: nil)
+        alert.addAction(okButton)
+        self.present(alert, animated: true, completion: nil)
     }
-    */
 
 }
